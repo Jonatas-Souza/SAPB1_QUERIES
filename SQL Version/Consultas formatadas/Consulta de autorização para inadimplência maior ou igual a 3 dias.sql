@@ -1,0 +1,229 @@
+SELECT 'TRUE'
+
+WHERE
+
+(SELECT 
+
+COUNT(*)
+
+FROM
+
+(
+
+-- NOTAS DE SAÍDAS EM ABERTO
+
+SELECT 
+
+'NOTA SAIDA' TIPO_DOC,
+T0.CARDCODE,
+T0.CARDNAME,
+T1.InstlmntID PARCELA,
+(T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '13' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) SALDO_PARCELA,
+T1.DUEDATE,
+CAST(T0.SERIAL AS VARCHAR(MAX)) SERIAL,
+T2.NfmName MODELO_DOC
+
+FROM
+
+OINV T0 INNER JOIN INV6 T1 ON T1.DOCENTRY = T0.DOCENTRY
+LEFT JOIN ONFM T2 ON T2.AbsEntry = t0.Model
+INNER JOIN INV1 T3 ON T3.DocEntry = T0.DocEntry
+
+WHERE
+
+T3.Usage<>'' 
+AND T0.CANCELED = 'N'
+AND T1.Status = 'O'
+AND (T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '13' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) <> 0 
+
+UNION ALL
+
+-- DEVOLUÇÕES DE NOTAS DE SAÍDAS EM ABERTO 
+
+SELECT 
+
+'DEVOLUÇÃO NOTA SAÍDA',
+T0.CARDCODE,
+T0.CARDNAME,
+T1.InstlmntID PARCELA,
+- (T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '14' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) SALDO_PARCELA,
+T1.DUEDATE,
+CAST(T0.SERIAL AS VARCHAR(MAX)),
+T2.NfmName
+
+FROM
+
+ORIN T0 INNER JOIN RIN6 T1 ON T1.DOCENTRY = T0.DOCENTRY
+LEFT JOIN ONFM T2 ON T2.AbsEntry = t0.Model
+INNER JOIN RIN1 T3 ON T3.DocEntry = T0.DocEntry
+
+WHERE
+
+T3.Usage<>''
+AND T0.CANCELED = 'N'
+AND T1.Status = 'O'
+AND (T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '14' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) <> 0  
+
+UNION ALL
+
+-- ADIANTAMENTO DE CLIENTES EM ABERTO
+
+SELECT 
+
+'ADIANTAMENTO CLIENTE',
+T0.CARDCODE,
+T0.CARDNAME,
+T1.InstlmntID PARCELA,
+(T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '203' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) SALDO_PARCELA,
+T1.DUEDATE,
+CAST(T0.DocEntry AS VARCHAR(MAX)),
+T2.NfmName
+
+FROM
+
+ODPI T0 INNER JOIN DPI6 T1 ON T1.DOCENTRY = T0.DOCENTRY
+LEFT JOIN ONFM T2 ON T2.AbsEntry = t0.Model
+INNER JOIN DPI1 T3 ON T3.DocEntry = T0.DocEntry  
+
+WHERE
+
+T3.DocEntry <>''
+AND T0.CANCELED = 'N'
+AND T1.Status = 'O'
+AND (T1.INSTOTAL - T1.PAIDTODATE - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = '203' AND TB.DOCENTRY = T0.DOCENTRY AND TB.InstId = T1.InstlmntID),0)
+Else 0 END) <> 0 
+
+UNION ALL
+
+-- CHEQUES CLIENTES EM ABERTO
+
+SELECT 
+
+'CHEQUES - CR',
+T0.CardCode,
+T0.CardName,
+1,
+T0.CHECKSUM,
+T0.CheckDate,
+CAST(T0.CHECKNUM AS VARCHAR(MAX)),
+''
+
+FROM 
+OCHH T0 WHERE T0.Canceled = 'N' AND T0.DEPOSITED = 'N'
+
+UNION ALL 
+
+-- CARTÕES DE CRÉDITOS CLIENTES EM ABERTO
+
+SELECT 
+
+'CARTÃO CRÉDITO - CR',
+T0.CardCode,
+T0.CardName,
+RIGHT(T0.VOUCHERNUM,LEN(T0.VOUCHERNUM)-CHARINDEX('\',T0.VOUCHERNUM)),
+T0.CreditSum,
+T0.PayDate,
+LEFT(T0.VOUCHERNUM,CHARINDEX('\',T0.VOUCHERNUM)-1),
+''
+ 
+FROM 
+
+OCRH T0 
+
+WHERE 
+
+T0.Canceled = 'N'
+AND T0.STORNO = 'N'
+AND T0.DEPOSITED = 'N'
+
+UNION ALL
+
+-- BOLETO CLIENTES EM ABERTO
+
+SELECT 
+
+'BOLETO - CR',
+T0.CardCode,
+T0.CardName,
+1,
+T0.BoeSum,
+T0.DUEDATE,
+CAST(T0.BOENUM AS VARCHAR(MAX)),
+''
+
+FROM 
+
+OBOE T0
+
+WHERE 
+
+T0.BoeStatus NOT IN ('C','P','F')
+AND T0.BOETYPE = 'I'
+
+UNION ALL
+
+-- LCM CLIENTES EM ABERTO 
+
+SELECT 
+
+'LCM CLIENTES - CR',
+T2.CARDCODE,
+T2.CardFName,
+T1.LINE_ID,
+(T1.BALDUEDEB-T1.BALDUECRED - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = T0.TRANSTYPE AND TB.DOCENTRY = T0.TRANSID AND TB.DocLine = T1.LINE_ID ),0)
+Else 0 END),
+T1.DUEDATE,
+CAST(T0.TransId AS VARCHAR(MAX)),
+''
+
+
+
+FROM
+
+OJDT T0 INNER JOIN JDT1 T1 ON T0.TransId = T1.TransId
+INNER JOIN OCRD T2 ON T2.CARDCODE = T1.SHORTNAME
+
+WHERE
+
+
+T0.TRANSID NOT IN (SELECT STORNOTOTR FROM OJDT WHERE ISNULL(STORNOTOTR,'') <> '')
+AND t0.transtype NOT IN ('13','14','203')
+AND ISNULL(T0.StornoToTr,'') = ''
+AND T2.CARDTYPE <> 'S'
+AND (T1.BALDUEDEB-T1.BALDUECRED - CASE WHEN (SELECT ALTBOEPOST FROM OADM) = 'Y' 
+THEN ISNULL((select SUM(ta.BoeSum) from oboe ta inner join rct2 tb on ta.pmntnum = tb.docnum 
+where ta.BoeStatus NOT IN ('C','P','F') and tb.invtype  = T0.TRANSTYPE AND TB.DOCENTRY = T0.TRANSID AND TB.DocLine = T1.LINE_ID ),0)
+Else 0 END) <> 0
+
+
+) TAB1
+
+WHERE 
+
+TAB1.CARDCODE =  $[$4.0]
+
+AND DATEDIFF(DAY,TAB1.DUEDATE,GETDATE()) >= 3
+)
+
+> 0
+
+AND (CASE WHEN $[$38.2011.0] IN (9,10,19) THEN '1' ELSE '0' END) = 1
